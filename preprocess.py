@@ -34,7 +34,7 @@ def get_datasets(first_part_path, second_part_path):
 
     num_docs = len(image_paths)
     indices = list(range(num_docs))
-    # random.seed(3796)
+    random.seed(3796)
     random.shuffle(indices)
 
     shuffled_indices = np.array(indices)
@@ -121,13 +121,13 @@ def create_eval_feed_dict(image_paths, eval_paths):
         for (y, x) in patch_indices:
             if not is_constant(otsu_thresh[y:y + patch_size, x:x + patch_size]):
                 patches_of_one_image.append(normalised_img[y:y + patch_size, x:x + patch_size, :])
-        patches.append(patches_of_one_image)
-    return np.array(patches, dtype=np.float32), np.array(scores, dtype=np.float32)
+        patches.append(np.array(patches_of_one_image, dtype=np.float32))
+    return patches, np.array(scores, dtype=np.float32)
 
-first_part_path = '../DIQA_Release_1.0_Part1'
+""" first_part_path = '../DIQA_Release_1.0_Part1'
 second_part_path = '../DIQA_Release_1.0_Part2/FineReader/'
 training_image_paths, training_eval_paths, validation_image_paths, validation_eval_paths, test_image_paths, test_eval_paths = get_datasets(first_part_path, second_part_path)
-training_patches, training_scores = create_eval_feed_dict(training_image_paths, training_eval_paths)
+training_patches, training_scores = create_feed_dict(training_image_paths, training_eval_paths)
 validation_patches, validation_scores = create_eval_feed_dict(validation_image_paths, validation_eval_paths)
 test_patches, test_scores = create_eval_feed_dict(test_image_paths, test_eval_paths)
 
@@ -136,4 +136,4 @@ print(len(training_scores))
 print(len(validation_patches))
 print(len(validation_scores))
 print(len(test_patches))
-print(len(test_scores))
+print(len(test_scores)) """
