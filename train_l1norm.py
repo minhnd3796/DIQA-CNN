@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 import tensorflow as tf
 import os
 from preprocess import create_feed_dict, get_datasets, create_eval_feed_dict
@@ -10,9 +11,9 @@ from scipy.stats import spearmanr
 first_part_path = '../DIQA_Release_1.0_Part1'
 second_part_path = '../DIQA_Release_1.0_Part2/FineReader/'
 IMAGE_SIZE = 48
-LR = 0.00001
+LR = 0.001
 num_epoch = 10
-batch_size = 512
+batch_size = 6400
 
 def conv_bn_relu(current, number, in_channels, out_channels, is_training, init):
     filters = tf.get_variable(name='conv' + str(number) + '_' + 'W',
@@ -35,18 +36,22 @@ def conv_bn_relu(current, number, in_channels, out_channels, is_training, init):
     return current
 
 def forward(image_patches, batch_size, sess, fc3, image_placeholder, is_training, keep_prob):
+    print('image_patches:', image_patches.shape)
     nr_of_examples = len(image_patches)
     nr_of_batches = math.ceil(nr_of_examples / batch_size)
     patch_scores = np.zeros(nr_of_examples)
+    batch_index = 0
     for batch_index in range(nr_of_batches - 1):
         start_index = batch_index * batch_size
         end_index = start_index + batch_size
         fc3_ = sess.run(fc3, feed_dict={image_placeholder: image_patches[start_index:end_index], is_training: False, keep_prob: 1.})
+        print('fc3_:', fc3_)
         patch_scores[start_index:end_index] = fc3_
-    batch_index += 1
+    # batch_index += 1
     start_index = batch_index * batch_size
     fc3_ = sess.run(fc3, feed_dict={image_placeholder: image_patches[start_index:], is_training: False, keep_prob: 1.})
     patch_scores[start_index:] = fc3_
+    print(image_patches[start_index:].shape)
     return np.mean(patch_scores)
 
 def main():
@@ -78,9 +83,10 @@ def main():
 
     fc_w3 = tf.Variable(tf.random_normal([1024, 1]))
     fc_b3 = tf.Variable(tf.random_normal([1]))
-    fc3 = tf.squeeze(tf.nn.relu(tf.add(tf.matmul(fc2, fc_w3), fc_b3)), axis=1)
+    fc3 = tf.squeeze((tf.add(tf.matmul(fc2, fc_w3), fc_b3)), axis=1)
 
     loss = tf.reduce_mean(tf.math.abs(tf.math.subtract(fc3, label_placeholder)))
+    # loss = tf.losses.absolute_difference(label_placeholder, fc3)
     optimiser = tf.train.AdamOptimizer(learning_rate=LR)
     train_op = optimiser.minimize(loss)
 
@@ -89,10 +95,13 @@ def main():
 
     training_image_paths, training_eval_paths, validation_image_paths, validation_eval_paths, test_image_paths, test_eval_paths = get_datasets(first_part_path, second_part_path)
     training_patches, training_scores = create_feed_dict(training_image_paths, training_eval_paths)
+    
     nr_of_training_examples = len(training_scores)
     nr_of_training_batches = math.ceil(nr_of_training_examples / batch_size)
 
     eval_training_patches, eval_training_scores = create_eval_feed_dict(training_image_paths, training_eval_paths)
+    
+    
     validation_patches, validation_scores = create_eval_feed_dict(validation_image_paths, validation_eval_paths)
     test_patches, test_scores = create_eval_feed_dict(test_image_paths, test_eval_paths)
 
@@ -103,10 +112,15 @@ def main():
         training_patches = training_patches[np.array(patch_indices)]
         training_scores = training_scores[np.array(patch_indices)]
         for batch_index in range(nr_of_training_batches - 1):
+            
+
             start_index = batch_index * batch_size
             end_index = start_index + batch_size
-            loss_, _ = sess.run([loss, train_op], feed_dict={image_placeholder: training_patches[start_index:end_index], label_placeholder: training_scores[start_index:end_index], is_training: True, keep_prob: 1.})
+            loss_, fc3_, _ = sess.run([loss, fc3, train_op], feed_dict={image_placeholder: training_patches[start_index:end_index], label_placeholder: training_scores[start_index:end_index], is_training: True, keep_prob: 1.})
             print("Epoch:", epoch_index + 1, "Batch:", batch_index + 1, '/', nr_of_training_batches, 'Loss:', loss_)
+
+            # print("predicted training:", fc3_)
+            # print("gt training:", eval_training_scores)
         batch_index += 1
         start_index = batch_index * batch_size
         loss_, _ = sess.run([loss, train_op], feed_dict={image_placeholder: training_patches[start_index:], label_placeholder: training_scores[start_index:], is_training: True, keep_prob: 1.})
@@ -116,18 +130,25 @@ def main():
             predicted_training_scores[i] = forward(eval_training_patches[i], batch_size, sess, fc3, image_placeholder, is_training, keep_prob)
         print("Training LCC:", pearsonr(predicted_training_scores, eval_training_scores)[0])
         print("Training SROCC:", spearmanr(predicted_training_scores, eval_training_scores)[0])
+        # print("predicted training:", predicted_training_scores)
+        # print("gt training:", eval_training_scores)
 
         predicted_validation_scores = np.zeros_like(validation_scores)
         for i in range(len(validation_patches)):
             predicted_validation_scores[i] = forward(validation_patches[i], batch_size, sess, fc3, image_placeholder, is_training, keep_prob)
         print("Validation LCC:", pearsonr(predicted_validation_scores, validation_scores)[0])
         print("Validation SROCC:", spearmanr(predicted_validation_scores, validation_scores)[0])
+        # print("predicted validation:", predicted_validation_scores)
+        # print("gt validation:", validation_scores)
+
 
     predicted_test_scores = np.zeros_like(test_scores)
     for i in range(len(test_patches)):
         predicted_test_scores[i] = forward(test_patches[i], batch_size, sess, fc3, image_placeholder, is_training, keep_prob)
-        print("Test LCC:", pearsonr(predicted_validation_scores, validation_scores)[0])
-        print("Test SROCC:", spearmanr(predicted_validation_scores, validation_scores)[0])
+    print("Test LCC:", pearsonr(predicted_test_scores, test_scores)[0])
+    print("Test SROCC:", spearmanr(predicted_test_scores, test_scores)[0])
+    # print("predicted test:", predicted_test_scores)
+    # print("gt test:", test_scores)            
 
 if __name__ == '__main__':
     main()
