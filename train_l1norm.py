@@ -12,7 +12,7 @@ first_part_path = '../DIQA_Release_1.0_Part1'
 second_part_path = '../DIQA_Release_1.0_Part2/FineReader/'
 IMAGE_SIZE = 48
 num_epoch = 10000
-batch_size = 10000
+batch_size = 512
 
 def conv(current, number, in_channels, out_channels, init):
     filters = tf.get_variable(name='conv' + str(number) + '_' + 'W',
@@ -22,45 +22,48 @@ def conv(current, number, in_channels, out_channels, init):
     current = tf.nn.bias_add(tf.nn.conv2d(current, filters, strides=[1, 1, 1, 1], padding="VALID"), bias)
     return current
 
-def forward_validation(image_patches, batch_size, sess, fc3, image_placeholder, keep_prob, loss, global_step, summary, summary_writer, score, label_placeholder):
+def forward_validation(image_patches, batch_size, sess, fc3, image_placeholder, keep_prob, loss, score, label_placeholder):
     nr_of_examples = len(image_patches)
     patch_scores = np.ones((nr_of_examples,), dtype=np.float32) * score
     nr_of_batches = math.ceil(nr_of_examples / batch_size)
     patch_scores = np.zeros(nr_of_examples)
     batch_index = -1
+    f = open('logs/val_loss.txt', 'a')
     for batch_index in range(nr_of_batches - 1):
         start_index = batch_index * batch_size
         end_index = start_index + batch_size
-        fc3_, loss_, summary_str, step_ = sess.run([fc3, loss, summary_op, global_step], feed_dict={image_placeholder: image_patches[start_index:end_index], keep_prob: 1., label_placeholder: patch_scores[start_index:end_index]})
-        summary_writer.add_summary(summary_str, global_step=step_)
+        fc3_, loss_ = sess.run([fc3, loss], feed_dict={image_placeholder: image_patches[start_index:end_index], keep_prob: 1., label_placeholder: patch_scores[start_index:end_index]})
+        f.write(str(loss_) + '\n')
         patch_scores[start_index:end_index] = fc3_
-        summary.value.add(tag='validation_loss', simple_value=loss_)
-        summary_writer.add_summary(summary, global_step=step_)
     batch_index += 1
     start_index = batch_index * batch_size
-    fc3_, loss_, step_ = sess.run([fc3, loss, global_step], feed_dict={image_placeholder: image_patches[start_index:], keep_prob: 1., label_placeholder: patch_scores[start_index:]})
-    summary.value.add(tag='validation_loss', simple_value=loss_)
-    summary_writer.add_summary(summary, global_step=step_)
+    fc3_, loss_ = sess.run([fc3, loss], feed_dict={image_placeholder: image_patches[start_index:], keep_prob: 1., label_placeholder: patch_scores[start_index:]})
+    f.write(str(loss_) + '\n')
+    f.close()
     patch_scores[start_index:] = fc3_
     return np.mean(patch_scores)
 
-def forward_training(image_patches, batch_size, sess, fc3, image_placeholder, keep_prob, loss, global_step, score, label_placeholder):
+def forward_training(image_patches, btch_size, sess, fc3, image_placeholder, keep_prob, loss, score, label_placeholder):
     nr_of_examples = len(image_patches)
     patch_scores = np.ones((nr_of_examples,), dtype=np.float32) * score
     nr_of_batches = math.ceil(nr_of_examples / batch_size)
     patch_scores = np.zeros(nr_of_examples)
     batch_index = -1
+    f = open('logs/training_loss.txt', 'a')
     for batch_index in range(nr_of_batches - 1):
         start_index = batch_index * batch_size
         end_index = start_index + batch_size
-        fc3_, loss_, step_ = sess.run([fc3, loss, global_step], feed_dict={image_placeholder: image_patches[start_index:end_index], keep_prob: 1., label_placeholder: patch_scores[start_index:end_index]})
-        summary_writer.add_summary(summary_str, global_step=step_)
+        fc3_, loss_ = sess.run([fc3, loss], feed_dict={image_placeholder: image_patches[start_index:end_index], keep_prob: 1., label_placeholder: patch_scores[start_index:end_index]})
+        f.write(str(loss_) + '\n')
         patch_scores[start_index:end_index] = fc3_
     batch_index += 1
     start_index = batch_index * batch_size
-    fc3_, loss_, step_ = sess.run([fc3, loss, global_step], feed_dict={image_placeholder: image_patches[start_index:], keep_prob: 1., label_placeholder: patch_scores[start_index:]})
+    fc3_, loss_ = sess.run([fc3, loss], feed_dict={image_placeholder: image_patches[start_index:], keep_prob: 1., label_placeholder: patch_scores[start_index:]})
+    f.write(str(loss_) + '\n')
+    f.close()
     patch_scores[start_index:] = fc3_
     return np.mean(patch_scores)
+
 def main():
     LR = 0.001
     learning_rate_decay_epochs = 20
@@ -116,9 +119,8 @@ def main():
     summary_op = tf.summary.merge_all()
 
     eval_training_patches, eval_training_scores = create_eval_feed_dict(training_image_paths, training_eval_paths)
-    
     validation_patches, validation_scores = create_eval_feed_dict(validation_image_paths, validation_eval_paths)
-    test_patches, test_scores = create_eval_feed_dict(test_image_paths, test_eval_paths)
+    # test_patches, test_scores = create_eval_feed_dict(test_image_paths, test_eval_paths)
 
     # Create a saver
     saver = tf.train.Saver(tf.trainable_variables())
@@ -150,7 +152,7 @@ def main():
         
         summary = tf.Summary()
         for i in range(len(eval_training_patches)):
-            predicted_training_scores[i] = forward_training(eval_training_patches[i], batch_size, sess, fc3, image_placeholder, keep_prob, loss, global_step, eval_training_scores[i], label_placeholder)
+            predicted_training_scores[i] = forward_training(eval_training_patches[i], batch_size, sess, fc3, image_placeholder, keep_prob, loss, eval_training_scores[i], label_placeholder)
         training_lcc = pearsonr(predicted_training_scores, eval_training_scores)[0]
         training_srocc = spearmanr(predicted_training_scores, eval_training_scores)[0]
         print("Training LCC:", training_lcc)
@@ -158,7 +160,7 @@ def main():
 
         predicted_validation_scores = np.zeros_like(validation_scores)
         for i in range(len(validation_patches)):
-            predicted_validation_scores[i] = forward_validation(validation_patches[i], batch_size, sess, fc3, image_placeholder, keep_prob, loss, global_step, summary, summary_writer, validation_scores[i], label_placeholder)
+            predicted_validation_scores[i] = forward_validation(validation_patches[i], batch_size, sess, fc3, image_placeholder, keep_prob, loss, validation_scores[i], label_placeholder)
         validation_lcc = pearsonr(predicted_validation_scores, validation_scores)[0]
         validation_srocc = spearmanr(predicted_validation_scores, validation_scores)[0]
         print("Validation LCC:", validation_lcc)

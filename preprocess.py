@@ -9,47 +9,49 @@ def get_score_from_eval(filename):
         lines = [line for line in infile][:4]
     return float(lines[3].split()[0][:-1]) / 100
 
-def get_datasets(first_part_path, second_part_path):
-    first_sets = os.listdir(first_part_path)
+def get_image_and_eval_paths(set_paths):
     image_paths = []
-    eval_paths = [] 
-
-    for doc in first_sets:
-        files = os.listdir(os.path.join(first_part_path, doc))
+    eval_paths = []
+    for set_path in set_paths:
+        files = os.listdir(set_path)
         for item in files:
             split_item = os.path.splitext(item)
             if split_item[1].lower() == '.jpg':
-                image_paths.append(os.path.join(first_part_path, doc, split_item[0] + split_item[1]))
-                eval_paths.append(os.path.join(first_part_path, doc, 'eval_' + split_item[0] + '.txt'))
+                image_paths.append(os.path.join(set_path, split_item[0] + split_item[1]))
+                eval_paths.append(os.path.join(set_path, 'eval_' + split_item[0] + '.txt'))
+    return image_paths, eval_paths
+
+def get_datasets(first_part_path, second_part_path):
+    first_sets = os.listdir(first_part_path)
     second_sets = os.listdir(second_part_path)
+    set_paths = []
+    for first_set in first_sets:
+        if first_set[:3] == 'set':
+            set_paths.append(os.path.join(first_part_path, first_set))
+    for second_set in second_sets:
+        if second_set[:3] == 'set':
+            set_paths.append(os.path.join(second_part_path, second_set))
 
-    for doc in second_sets:
-        if doc[:3] == 'set':
-            files = os.listdir(os.path.join(second_part_path, doc))
-            for item in files:
-                split_item = os.path.splitext(item)
-                if split_item[1].lower() == '.jpg':
-                    image_paths.append(os.path.join(second_part_path, doc, split_item[0] + split_item[1]))
-                    eval_paths.append(os.path.join(second_part_path, doc, 'eval_' + split_item[0] + '.txt'))
-
-    num_docs = len(image_paths)
-    indices = list(range(num_docs))
+    num_sets = len(set_paths)
+    indices = list(range(num_sets))
     random.seed(3796)
     random.shuffle(indices)
 
     shuffled_indices = np.array(indices)
-    shuffled_image_paths = np.array(image_paths)[shuffled_indices]
-    shuffled_eval_paths = np.array(eval_paths)[shuffled_indices]
+    shuffled_set_paths = np.array(set_paths)[shuffled_indices]
 
-    num_one_fold = num_docs // 5
-    training_image_paths = shuffled_image_paths[:num_one_fold * 3]
-    training_eval_paths = shuffled_eval_paths[:num_one_fold * 3]
+    num_one_fold = num_sets // 5
+    training_set_paths = shuffled_set_paths[:num_one_fold * 3]
+    validation_set_paths = shuffled_set_paths[num_one_fold * 3:num_one_fold * 3 + num_one_fold]
+    test_set_paths = shuffled_set_paths[num_one_fold * 4:]
 
-    validation_image_paths = shuffled_image_paths[num_one_fold * 3:num_one_fold * 3 + num_one_fold]
-    validation_eval_paths = shuffled_eval_paths[num_one_fold * 3:num_one_fold * 3 + num_one_fold]
+    print('training_set_paths', (training_set_paths))
+    print('validation_set_paths', (validation_set_paths))
+    print('test_set_paths', (test_set_paths))
 
-    test_image_paths = shuffled_image_paths[num_one_fold * 4:]
-    test_eval_paths = shuffled_eval_paths[num_one_fold * 4:]
+    training_image_paths, training_eval_paths = get_image_and_eval_paths(training_set_paths)
+    validation_image_paths, validation_eval_paths = get_image_and_eval_paths(validation_set_paths)
+    test_image_paths, test_eval_paths = get_image_and_eval_paths(test_set_paths)
 
     return training_image_paths, training_eval_paths, validation_image_paths, validation_eval_paths, test_image_paths, test_eval_paths
 
@@ -127,13 +129,27 @@ def create_eval_feed_dict(image_paths, eval_paths):
 """ first_part_path = '../DIQA_Release_1.0_Part1'
 second_part_path = '../DIQA_Release_1.0_Part2/FineReader/'
 training_image_paths, training_eval_paths, validation_image_paths, validation_eval_paths, test_image_paths, test_eval_paths = get_datasets(first_part_path, second_part_path)
-training_patches, training_scores = create_feed_dict(training_image_paths, training_eval_paths)
-validation_patches, validation_scores = create_eval_feed_dict(validation_image_paths, validation_eval_paths)
-test_patches, test_scores = create_eval_feed_dict(test_image_paths, test_eval_paths)
 
-print(len(training_patches))
-print(len(training_scores))
-print(len(validation_patches))
-print(len(validation_scores))
-print(len(test_patches))
-print(len(test_scores)) """
+f = open('training.txt', 'w')
+for path in training_image_paths:
+    f.write(path[3:] + '\n')
+f.close()
+f = open('validation.txt', 'w')
+for path in validation_image_paths:
+    f.write(path[3:] + '\n')
+f.close()
+f = open('test.txt', 'w')
+for path in test_image_paths:
+    f.write(path[3:] + '\n')
+f.close()
+training_patches, training_scores = create_feed_dict(training_image_paths, training_eval_paths)
+validation_patches, validation_scores = create_feed_dict(validation_image_paths, validation_eval_paths)
+test_patches, test_scores = create_feed_dict(test_image_paths, test_eval_paths)
+
+print('len(training_patches)', len(training_patches))
+print('len(training_scores)', len(training_scores))
+print('len(validation_patches)', len(validation_patches))
+print('len(validation_scores)', len(validation_scores))
+print('len(test_patches)', len(test_patches))
+print('len(test_scores)', len(test_scores)) """
+
