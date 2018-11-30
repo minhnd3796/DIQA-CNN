@@ -102,7 +102,7 @@ def main():
     loss = tf.reduce_mean(tf.abs(tf.subtract(fc3, label_placeholder)), name='loss')
     tf.summary.scalar('training_loss', loss)
 
-    optimiser = tf.train.AdamOptimizer(learning_rate=learning_rate_placeholder)
+    optimiser = tf.train.GradientDescentOptimizer(learning_rate=LR)
     global_step = tf.Variable(0, trainable=False)
     train_op = optimiser.minimize(loss, global_step=global_step)
 
