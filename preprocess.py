@@ -129,7 +129,7 @@ def create_eval_feed_dict(image_paths, eval_paths):
         patches.append(np.array(patches_of_one_image, dtype=np.float32))
     return patches, np.array(scores, dtype=np.float32)
 
-first_part_path = '../DIQA_Release_1.0_Part1'
+""" first_part_path = '../DIQA_Release_1.0_Part1'
 second_part_path = '../DIQA_Release_1.0_Part2/FineReader/'
 training_image_paths, training_eval_paths, validation_image_paths, validation_eval_paths, test_image_paths, test_eval_paths = get_datasets(first_part_path, second_part_path)
 
@@ -154,4 +154,4 @@ print('len(training_scores)', len(training_scores))
 print('len(validation_patches)', len(validation_patches))
 print('len(validation_scores)', len(validation_scores))
 print('len(test_patches)', len(test_patches))
-print('len(test_scores)', len(test_scores))
+print('len(test_scores)', len(test_scores)) """
