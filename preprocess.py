@@ -3,6 +3,7 @@ import cv2
 import os
 import random
 import numpy as np
+import utils
 
 def get_score_from_eval(filename):
     with open(filename, 'rb') as infile:
@@ -45,9 +46,9 @@ def get_datasets(first_part_path, second_part_path):
     validation_set_paths = shuffled_set_paths[num_one_fold * 3:num_one_fold * 3 + num_one_fold]
     test_set_paths = shuffled_set_paths[num_one_fold * 4:]
 
-    print('training_set_paths', (training_set_paths))
+    """ print('training_set_paths', (training_set_paths))
     print('validation_set_paths', (validation_set_paths))
-    print('test_set_paths', (test_set_paths))
+    print('test_set_paths', (test_set_paths)) """
 
     training_image_paths, training_eval_paths = get_image_and_eval_paths(training_set_paths)
     validation_image_paths, validation_eval_paths = get_image_and_eval_paths(validation_set_paths)
@@ -98,6 +99,8 @@ def create_feed_dict(image_paths, eval_paths):
     scores = []
     for i in range(len(image_paths)):
         grey_img = cv2.imread(image_paths[i], 0)
+        corners = utils.get_document_corners_from_grey(grey_img)
+        grey_img = utils.four_point_transform(grey_img, corners)
         normalised_img, otsu_thresh = locally_normalise_and_otsu_thresholding(grey_img)
         normalised_img = np.expand_dims(normalised_img, axis=2)
         patch_indices = sift_patches(grey_img, patch_size)
@@ -126,7 +129,7 @@ def create_eval_feed_dict(image_paths, eval_paths):
         patches.append(np.array(patches_of_one_image, dtype=np.float32))
     return patches, np.array(scores, dtype=np.float32)
 
-""" first_part_path = '../DIQA_Release_1.0_Part1'
+first_part_path = '../DIQA_Release_1.0_Part1'
 second_part_path = '../DIQA_Release_1.0_Part2/FineReader/'
 training_image_paths, training_eval_paths, validation_image_paths, validation_eval_paths, test_image_paths, test_eval_paths = get_datasets(first_part_path, second_part_path)
 
@@ -151,5 +154,4 @@ print('len(training_scores)', len(training_scores))
 print('len(validation_patches)', len(validation_patches))
 print('len(validation_scores)', len(validation_scores))
 print('len(test_patches)', len(test_patches))
-print('len(test_scores)', len(test_scores)) """
-
+print('len(test_scores)', len(test_scores))
