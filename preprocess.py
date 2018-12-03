@@ -61,8 +61,8 @@ def locally_normalise_and_otsu_thresholding(grey_img):
     mean = np.mean(grey_img)
     normalised_img = (grey_img - mean) / std
 
-    _, otsu_thresh = cv2.threshold(grey_img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    return normalised_img, otsu_thresh
+    th = cv2.adaptiveThreshold(cv2.medianBlur(grey_img, 31), 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,31,2)
+    return normalised_img, th
 
 def is_constant(patch):
     patch_uint32 = np.array(patch, dtype=np.uint32)
