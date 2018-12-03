@@ -125,10 +125,12 @@ def create_feed_dict(image_paths, eval_paths):
         patch_indices = sift_patches(grey_img, patch_size, stride)
         for (y, x) in patch_indices:
             if not is_constant(otsu_thresh[y:y + patch_size, x:x + patch_size]):
-                patches.append(normalised_img[y:y + patch_size, x:x + patch_size, :])
-                score = get_score_from_eval(eval_paths[i])
-                scores.append(score)
-    return patches, np.array(scores, dtype=np.float32)
+                patch = normalised_img[y:y + patch_size, x:x + patch_size, :]
+                if patch.shape == (patch_size, patch_size, 1):
+                    patches.append(normalised_img[y:y + patch_size, x:x + patch_size, :])
+                    score = get_score_from_eval(eval_paths[i])
+                    scores.append(score)
+    return np.array(patches, dtype=np.float32), np.array(scores, dtype=np.float32)
 
 def create_eval_feed_dict(image_paths, eval_paths):
     patch_size = 48
@@ -148,7 +150,7 @@ def create_eval_feed_dict(image_paths, eval_paths):
         patches.append(np.array(patches_of_one_image, dtype=np.float32))
     return patches, np.array(scores, dtype=np.float32)
 
-""" first_part_path = '../DIQA_Release_1.0_Part1'
+first_part_path = '../DIQA_Release_1.0_Part1'
 second_part_path = '../DIQA_Release_1.0_Part2/FineReader/'
 training_image_paths, training_eval_paths, validation_image_paths, validation_eval_paths, test_image_paths, test_eval_paths = get_datasets(first_part_path, second_part_path)
 
@@ -173,4 +175,4 @@ print('len(training_scores)', len(training_scores))
 print('len(validation_patches)', len(validation_patches))
 print('len(validation_scores)', len(validation_scores))
 print('len(test_patches)', len(test_patches))
-print('len(test_scores)', len(test_scores)) """
+print('len(test_scores)', len(test_scores))
