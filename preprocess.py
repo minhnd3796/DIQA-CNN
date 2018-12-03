@@ -5,6 +5,8 @@ import random
 import numpy as np
 import utils
 
+stride = 16
+
 def get_score_from_eval(filename):
     with open(filename, 'rb') as infile:
         lines = [line for line in infile][:4]
@@ -71,12 +73,29 @@ def is_constant(patch):
     else:
         return False
 
-def sift_patches(img, patch_size):
+def sift_patches(img, patch_size, stride):
     img_height, img_width = img.shape
-    num_row_patches = math.ceil(img_height / patch_size)
-    num_col_patches = math.ceil(img_width / patch_size)
     patch_index_list = []
 
+    y = 0
+    x = 0
+    while y + stride < img_height:
+        while x + stride < img_width:
+            patch_index_list.append((y, x))
+            x += stride
+        y += stride
+    y = 0
+    while y + stride < img_height:
+        patch_index_list.append((y, img_width - patch_size))
+        y += stride
+    x = 0
+    while x + stride < img_width:
+        patch_index_list.append((img_height - patch_size, x))
+        x += stride
+    patch_index_list.append((img_height - patch_size, img_width - patch_size))
+
+    """ num_row_patches = math.ceil(img_height / patch_size)
+    num_col_patches = math.ceil(img_width / patch_size)
     for row_patch_index in range(0, num_row_patches - 1):
         for col_patch_index in range(0, num_col_patches - 1):
             y = patch_size * row_patch_index
@@ -90,7 +109,7 @@ def sift_patches(img, patch_size):
     for row_patch_index in range(0, num_row_patches - 1):
         y = patch_size * row_patch_index
         patch_index_list.append((y, last_x))
-    patch_index_list.append((last_y, last_x))
+    patch_index_list.append((last_y, last_x)) """
     return patch_index_list
 
 def create_feed_dict(image_paths, eval_paths):
@@ -103,13 +122,13 @@ def create_feed_dict(image_paths, eval_paths):
         grey_img = utils.four_point_transform(grey_img, corners)
         normalised_img, otsu_thresh = locally_normalise_and_otsu_thresholding(grey_img)
         normalised_img = np.expand_dims(normalised_img, axis=2)
-        patch_indices = sift_patches(grey_img, patch_size)
+        patch_indices = sift_patches(grey_img, patch_size, stride)
         for (y, x) in patch_indices:
             if not is_constant(otsu_thresh[y:y + patch_size, x:x + patch_size]):
                 patches.append(normalised_img[y:y + patch_size, x:x + patch_size, :])
                 score = get_score_from_eval(eval_paths[i])
                 scores.append(score)
-    return np.array(patches, dtype=np.float32), np.array(scores, dtype=np.float32)
+    return patches, np.array(scores, dtype=np.float32)
 
 def create_eval_feed_dict(image_paths, eval_paths):
     patch_size = 48
@@ -122,7 +141,7 @@ def create_eval_feed_dict(image_paths, eval_paths):
         grey_img = cv2.imread(image_paths[i], 0)
         normalised_img, otsu_thresh = locally_normalise_and_otsu_thresholding(grey_img)
         normalised_img = np.expand_dims(normalised_img, axis=2)
-        patch_indices = sift_patches(grey_img, patch_size)
+        patch_indices = sift_patches(grey_img, patch_size, stride)
         for (y, x) in patch_indices:
             if not is_constant(otsu_thresh[y:y + patch_size, x:x + patch_size]):
                 patches_of_one_image.append(normalised_img[y:y + patch_size, x:x + patch_size, :])
