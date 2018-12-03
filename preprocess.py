@@ -146,7 +146,9 @@ def create_eval_feed_dict(image_paths, eval_paths):
         patch_indices = sift_patches(grey_img, patch_size, stride)
         for (y, x) in patch_indices:
             if not is_constant(otsu_thresh[y:y + patch_size, x:x + patch_size]):
-                patches_of_one_image.append(normalised_img[y:y + patch_size, x:x + patch_size, :])
+                patch = normalised_img[y:y + patch_size, x:x + patch_size, :]
+                if patch.shape == (patch_size, patch_size, 1):
+                    patches_of_one_image.append(patch)
         patches.append(np.array(patches_of_one_image, dtype=np.float32))
     return patches, np.array(scores, dtype=np.float32)
 
